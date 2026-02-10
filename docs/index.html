@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Screenshot Tool</title>
+    <style>
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f5f5f7;
+            --bg-dark: #1a1a1a;
+            --text-primary: #1d1d1f;
+            --text-secondary: #6e6e73;
+            --accent-blue: #007aff;
+            --accent-blue-hover: #0056cc;
+            --accent-green: #34c759;
+            --border-light: #d2d2d7;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+            font-size: 14px;
+            color: var(--text-primary);
+            background: var(--bg-secondary);
+            min-height: 100vh;
+        }
+
+        .app {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: var(--bg-primary);
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .header h1 { font-size: 20px; font-weight: 600; }
+        .header .subtitle { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+
+        .main-content {
+            display: flex;
+            flex: 1;
+            gap: 16px;
+            padding: 16px;
+            overflow: hidden;
+        }
+
+        .video-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            min-width: 0;
+        }
+
+        .upload-area {
+            background: var(--bg-primary);
+            border: 2px dashed var(--border-light);
+            border-radius: 12px;
+            padding: 48px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .upload-area:hover, .upload-area.dragover {
+            border-color: var(--accent-blue);
+            background: #f0f7ff;
+        }
+
+        .upload-icon { font-size: 48px; margin-bottom: 16px; }
+        .upload-area h2 { font-size: 18px; margin-bottom: 8px; }
+        .upload-area p { color: var(--text-secondary); margin-bottom: 8px; }
+
+        .video-preview {
+            background: var(--bg-dark);
+            border-radius: 12px;
+            padding: 16px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 300px;
+        }
+
+        .video-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .video-container video, .video-container canvas {
+            max-width: 100%;
+            max-height: 100%;
+        }
+
+        .video-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 16px;
+            color: #fff;
+            font-size: 13px;
+        }
+
+        .video-controls input[type="range"] {
+            flex: 1;
+            height: 6px;
+            -webkit-appearance: none;
+            background: #3a3a3a;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .video-controls input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #fff;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .video-buttons {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .video-buttons #frame-info {
+            margin-left: auto;
+            color: #888;
+            font-size: 13px;
+        }
+
+        .frames-section {
+            background: var(--bg-primary);
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        .frames-section h3 { font-size: 16px; margin-bottom: 12px; }
+
+        .frames-list {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+            min-height: 100px;
+        }
+
+        .frame-thumbnail {
+            flex-shrink: 0;
+            width: 140px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .frame-thumbnail canvas {
+            width: 100%;
+            height: 79px;
+            object-fit: cover;
+        }
+
+        .frame-thumbnail .frame-info {
+            padding: 8px;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .frame-thumbnail .remove-btn {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 24px;
+            height: 24px;
+            background: rgba(0,0,0,0.6);
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .frame-thumbnail .remove-btn:hover { background: #ff3b30; }
+
+        .sidebar {
+            width: 300px;
+            flex-shrink: 0;
+            background: var(--bg-primary);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - 130px);
+            overflow-y: auto;
+        }
+
+        .sidebar-content { padding: 16px; }
+
+        .settings-section { margin-bottom: 16px; }
+        .settings-section h3 { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
+
+        .separator { border: none; border-top: 1px solid var(--border-light); margin: 16px 0; }
+
+        .form-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        select, input[type="number"] {
+            padding: 10px 14px;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            font-size: 14px;
+            background: var(--bg-primary);
+            flex: 1;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            transition: all 0.2s;
+        }
+
+        .btn:hover { background: var(--bg-secondary); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .btn-primary {
+            background: var(--accent-blue);
+            border: none;
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .btn-primary:hover { background: var(--accent-blue-hover); }
+        .btn-full { width: 100%; }
+
+        .btn-icon {
+            padding: 8px 16px;
+            min-width: 44px;
+            background: #3a3a3a;
+            border: none;
+            color: #fff;
+        }
+
+        .btn-icon:hover { background: #4a4a4a; }
+
+        .secondary-text { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+
+        .status-bar {
+            background: var(--bg-primary);
+            padding: 8px 24px;
+            border-top: 1px solid var(--border-light);
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .hidden { display: none !important; }
+
+        .progress-bar {
+            height: 8px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 8px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--accent-blue);
+            border-radius: 4px;
+            transition: width 0.3s;
+            width: 0%;
+        }
+
+        @media (max-width: 900px) {
+            .main-content { flex-direction: column; }
+            .sidebar { width: 100%; max-height: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <header class="header">
+            <h1>Screenshot Tool</h1>
+            <p class="subtitle">Extrahiere hochwertige Screenshots aus Videos – direkt im Browser</p>
+        </header>
+
+        <main class="main-content">
+            <section class="video-panel">
+                <div id="upload-area" class="upload-area">
+                    <div class="upload-icon">📹</div>
+                    <h2>Video hochladen</h2>
+                    <p>Ziehe eine Videodatei hierher oder klicke zum Auswählen</p>
+                    <p class="secondary-text">MP4, MOV, WebM – Verarbeitung erfolgt lokal im Browser</p>
+                    <input type="file" id="file-input" accept="video/*" hidden>
+                    <button class="btn btn-primary" onclick="document.getElementById('file-input').click()">
+                        Video auswählen
+                    </button>
+                </div>
+
+                <div id="video-preview" class="video-preview hidden">
+                    <div class="video-container">
+                        <video id="video-element" style="display:none;"></video>
+                        <canvas id="frame-canvas"></canvas>
+                    </div>
+                    <div class="video-controls">
+                        <span id="current-time">00:00.00</span>
+                        <input type="range" id="timeline-slider" min="0" max="100" value="0" step="0.001">
+                        <span id="duration">00:00.00</span>
+                    </div>
+                    <div class="video-buttons">
+                        <button class="btn btn-icon" id="prev-frame-btn">◀</button>
+                        <button class="btn btn-icon" id="next-frame-btn">▶</button>
+                        <button class="btn btn-primary" id="add-frame-btn">+ Frame hinzufügen</button>
+                        <span id="frame-info">Frame: 0 / 0</span>
+                    </div>
+                </div>
+
+                <div id="frames-section" class="frames-section hidden">
+                    <h3>Ausgewählte Frames (<span id="frame-count">0</span>)</h3>
+                    <div id="frames-list" class="frames-list"></div>
+                </div>
+            </section>
+
+            <aside class="sidebar">
+                <div class="sidebar-content">
+                    <div class="settings-section">
+                        <h3>Export</h3>
+                        <div class="form-row">
+                            <label>Format:</label>
+                            <select id="export-format">
+                                <option value="png">PNG</option>
+                                <option value="jpeg">JPG</option>
+                                <option value="webp">WebP</option>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <label>Qualität:</label>
+                            <input type="range" id="quality-slider" min="1" max="100" value="95">
+                            <span id="quality-value">95%</span>
+                        </div>
+                        <p class="secondary-text" id="quality-info">Für JPG/WebP</p>
+                    </div>
+
+                    <hr class="separator">
+
+                    <div class="settings-section">
+                        <h3>Aktionen</h3>
+                        <button class="btn btn-full" id="capture-btn" disabled style="margin-bottom: 8px;">
+                            Aktuelles Frame speichern
+                        </button>
+                        <button class="btn btn-primary btn-full" id="export-btn" disabled>
+                            Alle Screenshots exportieren
+                        </button>
+                    </div>
+
+                    <hr class="separator">
+
+                    <div class="settings-section">
+                        <h3>Info</h3>
+                        <p class="secondary-text">
+                            Alle Verarbeitung erfolgt lokal in deinem Browser.
+                            Keine Daten werden hochgeladen.
+                        </p>
+                        <p class="secondary-text" style="margin-top: 8px;">
+                            Tastenkürzel:<br>
+                            ← → Frame vor/zurück<br>
+                            Leertaste: Frame hinzufügen
+                        </p>
+                    </div>
+                </div>
+            </aside>
+        </main>
+
+        <footer class="status-bar">
+            <span id="status-text">Bereit – Lade ein Video um zu starten</span>
+        </footer>
+    </div>
+
+    <script>
+        class ScreenshotTool {
+            constructor() {
+                this.video = document.getElementById('video-element');
+                this.canvas = document.getElementById('frame-canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.frames = [];
+                this.fps = 30;
+
+                this.initElements();
+                this.initEventListeners();
+            }
+
+            initElements() {
+                this.uploadArea = document.getElementById('upload-area');
+                this.fileInput = document.getElementById('file-input');
+                this.videoPreview = document.getElementById('video-preview');
+                this.framesSection = document.getElementById('frames-section');
+                this.framesList = document.getElementById('frames-list');
+                this.frameCount = document.getElementById('frame-count');
+                this.timelineSlider = document.getElementById('timeline-slider');
+                this.currentTimeEl = document.getElementById('current-time');
+                this.durationEl = document.getElementById('duration');
+                this.frameInfo = document.getElementById('frame-info');
+                this.qualitySlider = document.getElementById('quality-slider');
+                this.qualityValue = document.getElementById('quality-value');
+                this.exportFormat = document.getElementById('export-format');
+                this.captureBtn = document.getElementById('capture-btn');
+                this.exportBtn = document.getElementById('export-btn');
+                this.statusText = document.getElementById('status-text');
+            }
+
+            initEventListeners() {
+                this.fileInput.addEventListener('change', (e) => this.loadVideo(e.target.files[0]));
+
+                this.uploadArea.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    this.uploadArea.classList.add('dragover');
+                });
+                this.uploadArea.addEventListener('dragleave', () => {
+                    this.uploadArea.classList.remove('dragover');
+                });
+                this.uploadArea.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    this.uploadArea.classList.remove('dragover');
+                    if (e.dataTransfer.files.length) this.loadVideo(e.dataTransfer.files[0]);
+                });
+
+                this.timelineSlider.addEventListener('input', () => this.seekTo(this.timelineSlider.value / 1000));
+
+                document.getElementById('prev-frame-btn').addEventListener('click', () => this.stepFrame(-1));
+                document.getElementById('next-frame-btn').addEventListener('click', () => this.stepFrame(1));
+                document.getElementById('add-frame-btn').addEventListener('click', () => this.addCurrentFrame());
+
+                this.qualitySlider.addEventListener('input', () => {
+                    this.qualityValue.textContent = this.qualitySlider.value + '%';
+                });
+
+                this.captureBtn.addEventListener('click', () => this.downloadCurrentFrame());
+                this.exportBtn.addEventListener('click', () => this.exportAllFrames());
+
+                document.addEventListener('keydown', (e) => {
+                    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+                    if (e.key === 'ArrowLeft') this.stepFrame(-1);
+                    if (e.key === 'ArrowRight') this.stepFrame(1);
+                    if (e.key === ' ') { e.preventDefault(); this.addCurrentFrame(); }
+                });
+
+                this.video.addEventListener('loadedmetadata', () => this.onVideoLoaded());
+                this.video.addEventListener('seeked', () => this.drawFrame());
+            }
+
+            loadVideo(file) {
+                if (!file) return;
+
+                const url = URL.createObjectURL(file);
+                this.video.src = url;
+                this.setStatus('Lade Video: ' + file.name);
+            }
+
+            onVideoLoaded() {
+                this.uploadArea.classList.add('hidden');
+                this.videoPreview.classList.remove('hidden');
+                this.framesSection.classList.remove('hidden');
+                this.captureBtn.disabled = false;
+
+                const duration = this.video.duration;
+                this.durationEl.textContent = this.formatTime(duration);
+                this.timelineSlider.max = Math.floor(duration * 1000);
+
+                // Estimate FPS (default 30 if unknown)
+                this.fps = 30;
+                this.totalFrames = Math.floor(duration * this.fps);
+
+                this.canvas.width = this.video.videoWidth;
+                this.canvas.height = this.video.videoHeight;
+
+                this.seekTo(0);
+                this.setStatus(`Video geladen: ${this.video.videoWidth}×${this.video.videoHeight} | ${this.formatTime(duration)}`);
+            }
+
+            seekTo(timePercent) {
+                const time = (timePercent * this.video.duration);
+                this.video.currentTime = Math.max(0, Math.min(time, this.video.duration));
+                this.updateTimeDisplay();
+            }
+
+            stepFrame(direction) {
+                const frameTime = 1 / this.fps;
+                this.video.currentTime = Math.max(0, Math.min(
+                    this.video.currentTime + (direction * frameTime),
+                    this.video.duration
+                ));
+                this.timelineSlider.value = (this.video.currentTime / this.video.duration) * 1000;
+                this.updateTimeDisplay();
+            }
+
+            updateTimeDisplay() {
+                this.currentTimeEl.textContent = this.formatTime(this.video.currentTime);
+                const currentFrame = Math.floor(this.video.currentTime * this.fps);
+                this.frameInfo.textContent = `Frame: ${currentFrame} / ${this.totalFrames}`;
+            }
+
+            drawFrame() {
+                this.ctx.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
+            }
+
+            addCurrentFrame() {
+                const time = this.video.currentTime;
+
+                // Check if already added
+                if (this.frames.some(f => Math.abs(f.time - time) < 0.01)) {
+                    this.setStatus('Frame bereits in der Auswahl');
+                    return;
+                }
+
+                // Capture frame
+                const thumbCanvas = document.createElement('canvas');
+                thumbCanvas.width = 160;
+                thumbCanvas.height = 90;
+                const thumbCtx = thumbCanvas.getContext('2d');
+                thumbCtx.drawImage(this.video, 0, 0, thumbCanvas.width, thumbCanvas.height);
+
+                const frame = {
+                    time: time,
+                    frameNumber: Math.floor(time * this.fps),
+                    dataUrl: this.canvas.toDataURL('image/png'),
+                    thumbnail: thumbCanvas
+                };
+
+                this.frames.push(frame);
+                this.renderFramesList();
+                this.exportBtn.disabled = false;
+                this.setStatus(`Frame hinzugefügt – ${this.frames.length} Frames insgesamt`);
+            }
+
+            removeFrame(index) {
+                this.frames.splice(index, 1);
+                this.renderFramesList();
+                this.exportBtn.disabled = this.frames.length === 0;
+            }
+
+            renderFramesList() {
+                this.framesList.innerHTML = '';
+                this.frameCount.textContent = this.frames.length;
+
+                this.frames.forEach((frame, index) => {
+                    const div = document.createElement('div');
+                    div.className = 'frame-thumbnail';
+
+                    div.appendChild(frame.thumbnail.cloneNode(true));
+
+                    const removeBtn = document.createElement('button');
+                    removeBtn.className = 'remove-btn';
+                    removeBtn.textContent = '×';
+                    removeBtn.onclick = () => this.removeFrame(index);
+                    div.appendChild(removeBtn);
+
+                    const info = document.createElement('div');
+                    info.className = 'frame-info';
+                    info.textContent = `Frame ${frame.frameNumber} (${this.formatTime(frame.time)})`;
+                    div.appendChild(info);
+
+                    this.framesList.appendChild(div);
+                });
+            }
+
+            downloadCurrentFrame() {
+                const format = this.exportFormat.value;
+                const quality = this.qualitySlider.value / 100;
+                const mimeType = format === 'jpeg' ? 'image/jpeg' : format === 'webp' ? 'image/webp' : 'image/png';
+
+                const dataUrl = this.canvas.toDataURL(mimeType, quality);
+                const link = document.createElement('a');
+                link.download = `screenshot_${Math.floor(this.video.currentTime * 1000)}.${format}`;
+                link.href = dataUrl;
+                link.click();
+
+                this.setStatus('Screenshot gespeichert');
+            }
+
+            exportAllFrames() {
+                if (this.frames.length === 0) return;
+
+                const format = this.exportFormat.value;
+                const quality = this.qualitySlider.value / 100;
+                const mimeType = format === 'jpeg' ? 'image/jpeg' : format === 'webp' ? 'image/webp' : 'image/png';
+
+                this.frames.forEach((frame, index) => {
+                    // Re-render at full quality
+                    const img = new Image();
+                    img.onload = () => {
+                        const exportCanvas = document.createElement('canvas');
+                        exportCanvas.width = this.canvas.width;
+                        exportCanvas.height = this.canvas.height;
+                        exportCanvas.getContext('2d').drawImage(img, 0, 0);
+
+                        const dataUrl = exportCanvas.toDataURL(mimeType, quality);
+                        const link = document.createElement('a');
+                        link.download = `frame_${String(index + 1).padStart(3, '0')}_${frame.frameNumber}.${format}`;
+                        link.href = dataUrl;
+                        link.click();
+                    };
+                    img.src = frame.dataUrl;
+                });
+
+                this.setStatus(`${this.frames.length} Screenshots exportiert`);
+            }
+
+            formatTime(seconds) {
+                const mins = Math.floor(seconds / 60);
+                const secs = (seconds % 60).toFixed(2);
+                return `${String(mins).padStart(2, '0')}:${secs.padStart(5, '0')}`;
+            }
+
+            setStatus(text) {
+                this.statusText.textContent = text;
+            }
+        }
+
+        const app = new ScreenshotTool();
+    </script>
+</body>
+</html>
