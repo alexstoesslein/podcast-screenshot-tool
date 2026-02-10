@@ -385,6 +385,31 @@
                     <hr class="separator">
 
                     <div class="settings-section">
+                        <h3>Auto-Analyse</h3>
+                        <button class="btn btn-primary btn-full" id="analyze-btn" disabled style="margin-bottom: 8px;">
+                            🔍 Video analysieren
+                        </button>
+                        <div id="analysis-progress" class="hidden">
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="analysis-progress-fill"></div>
+                            </div>
+                            <p class="secondary-text" id="analysis-status">Analysiere...</p>
+                        </div>
+                        <div class="form-row" style="margin-top: 8px;">
+                            <label>Max. Frames:</label>
+                            <select id="max-frames">
+                                <option value="5">5</option>
+                                <option value="10" selected>10</option>
+                                <option value="20">20</option>
+                                <option value="50">50</option>
+                            </select>
+                        </div>
+                        <p class="secondary-text">Findet automatisch die besten Screenshot-Stellen</p>
+                    </div>
+
+                    <hr class="separator">
+
+                    <div class="settings-section">
                         <h3>Aktionen</h3>
                         <button class="btn btn-full" id="capture-btn" disabled style="margin-bottom: 8px;">
                             Aktuelles Frame speichern
@@ -418,6 +443,145 @@
     </div>
 
     <script>
+        // Frame Analyzer - Schärfe & Gesichtserkennung
+        class FrameAnalyzer {
+            constructor() {
+                this.analysisCanvas = document.createElement('canvas');
+                this.analysisCtx = this.analysisCanvas.getContext('2d', { willReadFrequently: true });
+            }
+
+            // Berechnet die Schärfe eines Frames (Laplacian Varianz)
+            calculateSharpness(imageData) {
+                const data = imageData.data;
+                const width = imageData.width;
+                const height = imageData.height;
+
+                // In Graustufen umwandeln
+                const gray = new Float32Array(width * height);
+                for (let i = 0; i < data.length; i += 4) {
+                    gray[i / 4] = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+                }
+
+                // Laplacian Filter anwenden
+                let sum = 0;
+                let sumSq = 0;
+                let count = 0;
+
+                for (let y = 1; y < height - 1; y++) {
+                    for (let x = 1; x < width - 1; x++) {
+                        const idx = y * width + x;
+                        const laplacian =
+                            -gray[idx - width] - gray[idx - 1] + 4 * gray[idx] - gray[idx + 1] - gray[idx + width];
+                        sum += laplacian;
+                        sumSq += laplacian * laplacian;
+                        count++;
+                    }
+                }
+
+                // Varianz berechnen
+                const mean = sum / count;
+                const variance = (sumSq / count) - (mean * mean);
+                return variance;
+            }
+
+            // Erkennt Hautfarben als Proxy für Gesichtserkennung
+            detectFaces(imageData) {
+                const data = imageData.data;
+                let skinPixels = 0;
+                const totalPixels = data.length / 4;
+
+                for (let i = 0; i < data.length; i += 4) {
+                    const r = data[i];
+                    const g = data[i + 1];
+                    const b = data[i + 2];
+
+                    // Hautfarben-Erkennung (funktioniert für verschiedene Hauttöne)
+                    if (this.isSkinColor(r, g, b)) {
+                        skinPixels++;
+                    }
+                }
+
+                // Prozent der Hautpixel (10-40% ist typisch für Portraitaufnahmen)
+                const skinRatio = skinPixels / totalPixels;
+
+                // Score: optimal bei ~15-25% Hautanteil
+                if (skinRatio >= 0.08 && skinRatio <= 0.45) {
+                    return Math.min(1, skinRatio * 3);
+                }
+                return skinRatio * 0.5;
+            }
+
+            isSkinColor(r, g, b) {
+                // Mehrere Hautfarben-Regeln für verschiedene Hauttöne
+                const max = Math.max(r, g, b);
+                const min = Math.min(r, g, b);
+
+                // Regel 1: RGB Verhältnisse
+                if (r > 95 && g > 40 && b > 20 &&
+                    r > g && r > b &&
+                    (max - min) > 15 &&
+                    Math.abs(r - g) > 15) {
+                    return true;
+                }
+
+                // Regel 2: Für dunklere Hauttöne
+                if (r > 60 && g > 40 && b > 30 &&
+                    r >= g && g >= b &&
+                    r - b > 10) {
+                    return true;
+                }
+
+                return false;
+            }
+
+            // Berechnet Bildstabilität (wenig Bewegungsunschärfe)
+            calculateStability(imageData) {
+                const data = imageData.data;
+                const width = imageData.width;
+                const height = imageData.height;
+
+                // Horizontale Kanten zählen
+                let edgeSum = 0;
+                for (let y = 0; y < height; y++) {
+                    for (let x = 1; x < width - 1; x++) {
+                        const idx = (y * width + x) * 4;
+                        const left = data[idx - 4] + data[idx - 3] + data[idx - 2];
+                        const right = data[idx + 4] + data[idx + 5] + data[idx + 6];
+                        edgeSum += Math.abs(right - left);
+                    }
+                }
+
+                return edgeSum / (width * height);
+            }
+
+            // Analysiert einen Frame und gibt einen Score zurück
+            analyzeFrame(video, width, height) {
+                // Auf kleinere Größe skalieren für schnellere Analyse
+                const analyzeWidth = Math.min(320, width);
+                const analyzeHeight = Math.round(analyzeWidth * (height / width));
+
+                this.analysisCanvas.width = analyzeWidth;
+                this.analysisCanvas.height = analyzeHeight;
+                this.analysisCtx.drawImage(video, 0, 0, analyzeWidth, analyzeHeight);
+
+                const imageData = this.analysisCtx.getImageData(0, 0, analyzeWidth, analyzeHeight);
+
+                const sharpness = this.calculateSharpness(imageData);
+                const faceScore = this.detectFaces(imageData);
+                const stability = this.calculateStability(imageData);
+
+                // Gewichteter Score
+                const score = (sharpness / 1000) * 0.4 + faceScore * 0.4 + (stability / 100) * 0.2;
+
+                return {
+                    sharpness,
+                    faceScore,
+                    stability,
+                    totalScore: score
+                };
+            }
+        }
+
         // LUT Parser and Processor
         class LUTProcessor {
             constructor() {
@@ -557,6 +721,10 @@
                 this.applyLut = false;
                 this.previewLut = false;
 
+                // Analyzer
+                this.frameAnalyzer = new FrameAnalyzer();
+                this.isAnalyzing = false;
+
                 this.initElements();
                 this.initEventListeners();
             }
@@ -585,6 +753,13 @@
                 this.lutLabel = document.getElementById('lut-label');
                 this.applyLutCheckbox = document.getElementById('apply-lut');
                 this.previewLutCheckbox = document.getElementById('preview-lut');
+
+                // Analyze elements
+                this.analyzeBtn = document.getElementById('analyze-btn');
+                this.analysisProgress = document.getElementById('analysis-progress');
+                this.analysisProgressFill = document.getElementById('analysis-progress-fill');
+                this.analysisStatus = document.getElementById('analysis-status');
+                this.maxFramesSelect = document.getElementById('max-frames');
             }
 
             initEventListeners() {
@@ -626,6 +801,7 @@
 
                 this.captureBtn.addEventListener('click', () => this.downloadCurrentFrame());
                 this.exportBtn.addEventListener('click', () => this.exportAllFrames());
+                this.analyzeBtn.addEventListener('click', () => this.analyzeVideo());
 
                 document.addEventListener('keydown', (e) => {
                     if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
@@ -679,6 +855,7 @@
                 this.videoPreview.classList.remove('hidden');
                 this.framesSection.classList.remove('hidden');
                 this.captureBtn.disabled = false;
+                this.analyzeBtn.disabled = false;
 
                 const duration = this.video.duration;
                 this.durationEl.textContent = this.formatTime(duration);
@@ -692,7 +869,7 @@
                 this.canvas.height = this.video.videoHeight;
 
                 this.seekTo(0);
-                this.setStatus(`Video geladen: ${this.video.videoWidth}×${this.video.videoHeight} | ${this.formatTime(duration)}`);
+                this.setStatus(`Video geladen: ${this.video.videoWidth}×${this.video.videoHeight} | ${this.formatTime(duration)} – Klicke "Video analysieren" für automatische Frame-Auswahl`);
             }
 
             seekTo(timePercent) {
@@ -786,18 +963,32 @@
                 this.frames.forEach((frame, index) => {
                     const div = document.createElement('div');
                     div.className = 'frame-thumbnail';
+                    div.style.cursor = 'pointer';
+                    div.onclick = (e) => {
+                        if (e.target.classList.contains('remove-btn')) return;
+                        this.video.currentTime = frame.time;
+                        this.timelineSlider.value = (frame.time / this.video.duration) * 1000;
+                        this.updateTimeDisplay();
+                    };
 
                     div.appendChild(frame.thumbnail.cloneNode(true));
 
                     const removeBtn = document.createElement('button');
                     removeBtn.className = 'remove-btn';
                     removeBtn.textContent = '×';
-                    removeBtn.onclick = () => this.removeFrame(index);
+                    removeBtn.onclick = (e) => { e.stopPropagation(); this.removeFrame(index); };
                     div.appendChild(removeBtn);
 
                     const info = document.createElement('div');
                     info.className = 'frame-info';
-                    info.textContent = `Frame ${frame.frameNumber} (${this.formatTime(frame.time)})`;
+                    let infoText = `${this.formatTime(frame.time)}`;
+                    if (frame.score !== undefined) {
+                        infoText += ` | Score: ${(frame.score * 100).toFixed(0)}`;
+                    }
+                    if (frame.lutApplied) {
+                        infoText += ' 🎨';
+                    }
+                    info.textContent = infoText;
                     div.appendChild(info);
 
                     this.framesList.appendChild(div);
@@ -859,6 +1050,152 @@
                 });
 
                 this.setStatus(`${this.frames.length} Screenshots exportiert`);
+            }
+
+            async analyzeVideo() {
+                if (this.isAnalyzing) return;
+
+                this.isAnalyzing = true;
+                this.analyzeBtn.disabled = true;
+                this.analysisProgress.classList.remove('hidden');
+
+                const maxFrames = parseInt(this.maxFramesSelect.value);
+                const duration = this.video.duration;
+
+                // Intelligentes Sampling: Je länger das Video, desto mehr Samples
+                // aber maximal alle 0.5 Sekunden
+                const minInterval = 0.5;
+                const maxSamples = Math.min(500, Math.ceil(duration / minInterval));
+                const interval = duration / maxSamples;
+
+                const candidates = [];
+
+                this.setStatus('Analysiere Video...');
+
+                for (let i = 0; i < maxSamples; i++) {
+                    const time = i * interval;
+
+                    // Progress Update
+                    const progress = ((i + 1) / maxSamples) * 100;
+                    this.analysisProgressFill.style.width = progress + '%';
+                    this.analysisStatus.textContent = `Analysiere: ${Math.round(progress)}% (${i + 1}/${maxSamples} Samples)`;
+
+                    // Zum Zeitpunkt springen und warten
+                    await this.seekToAsync(time);
+
+                    // Frame analysieren
+                    const score = this.frameAnalyzer.analyzeFrame(
+                        this.video,
+                        this.video.videoWidth,
+                        this.video.videoHeight
+                    );
+
+                    candidates.push({
+                        time,
+                        score: score.totalScore,
+                        sharpness: score.sharpness,
+                        faceScore: score.faceScore
+                    });
+
+                    // UI nicht blockieren
+                    if (i % 10 === 0) {
+                        await new Promise(r => setTimeout(r, 0));
+                    }
+                }
+
+                // Beste Frames auswählen mit Mindestabstand
+                const bestFrames = this.selectBestFrames(candidates, maxFrames, 2.0);
+
+                // Frames hinzufügen
+                this.analysisStatus.textContent = 'Füge beste Frames hinzu...';
+
+                for (const candidate of bestFrames) {
+                    await this.seekToAsync(candidate.time);
+                    await new Promise(r => setTimeout(r, 50)); // Kurz warten für stabiles Bild
+
+                    // Direkt Frame hinzufügen (ohne Duplikat-Check, da neue Analyse)
+                    this.addFrameAtTime(candidate.time, candidate.score);
+                }
+
+                // Aufräumen
+                this.isAnalyzing = false;
+                this.analyzeBtn.disabled = false;
+                this.analysisProgress.classList.add('hidden');
+                this.analysisProgressFill.style.width = '0%';
+
+                // Zum ersten gefundenen Frame springen
+                if (bestFrames.length > 0) {
+                    await this.seekToAsync(bestFrames[0].time);
+                }
+
+                this.setStatus(`Analyse abgeschlossen: ${bestFrames.length} beste Frames gefunden`);
+            }
+
+            selectBestFrames(candidates, maxCount, minDistance) {
+                // Nach Score sortieren
+                const sorted = [...candidates].sort((a, b) => b.score - a.score);
+
+                const selected = [];
+
+                for (const candidate of sorted) {
+                    if (selected.length >= maxCount) break;
+
+                    // Mindestabstand prüfen
+                    const tooClose = selected.some(s => Math.abs(s.time - candidate.time) < minDistance);
+                    if (!tooClose) {
+                        selected.push(candidate);
+                    }
+                }
+
+                // Nach Zeit sortieren für chronologische Anzeige
+                return selected.sort((a, b) => a.time - b.time);
+            }
+
+            seekToAsync(time) {
+                return new Promise(resolve => {
+                    const onSeeked = () => {
+                        this.video.removeEventListener('seeked', onSeeked);
+                        resolve();
+                    };
+                    this.video.addEventListener('seeked', onSeeked);
+                    this.video.currentTime = time;
+                });
+            }
+
+            addFrameAtTime(time, score) {
+                // Create full-res frame with optional LUT
+                const fullCanvas = document.createElement('canvas');
+                fullCanvas.width = this.video.videoWidth;
+                fullCanvas.height = this.video.videoHeight;
+                const fullCtx = fullCanvas.getContext('2d');
+                fullCtx.drawImage(this.video, 0, 0, fullCanvas.width, fullCanvas.height);
+
+                // Apply LUT if enabled
+                if (this.lutLoaded && this.applyLut) {
+                    const imageData = fullCtx.getImageData(0, 0, fullCanvas.width, fullCanvas.height);
+                    this.lutProcessor.applyToImageData(imageData);
+                    fullCtx.putImageData(imageData, 0, 0);
+                }
+
+                // Capture thumbnail
+                const thumbCanvas = document.createElement('canvas');
+                thumbCanvas.width = 160;
+                thumbCanvas.height = 90;
+                const thumbCtx = thumbCanvas.getContext('2d');
+                thumbCtx.drawImage(fullCanvas, 0, 0, thumbCanvas.width, thumbCanvas.height);
+
+                const frame = {
+                    time: time,
+                    frameNumber: Math.floor(time * this.fps),
+                    dataUrl: fullCanvas.toDataURL('image/png'),
+                    thumbnail: thumbCanvas,
+                    lutApplied: this.lutLoaded && this.applyLut,
+                    score: score
+                };
+
+                this.frames.push(frame);
+                this.renderFramesList();
+                this.exportBtn.disabled = false;
             }
 
             formatTime(seconds) {
