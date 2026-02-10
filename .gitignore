@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environment
+venv/
+ENV/
+env/
+
+# macOS
+.DS_Store
+*.app/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Test videos/images
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.webm
+*.png
+*.jpg
+*.jpeg
+*.tiff
+*.webp
+*.bmp
+
+# LUT files
+*.cube
+
+# Logs
+*.log
