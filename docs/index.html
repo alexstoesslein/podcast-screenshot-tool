@@ -81,14 +81,14 @@
             background: var(--bg-dark);
             border-radius: 12px;
             padding: 16px;
-            flex: 1;
             display: flex;
             flex-direction: column;
-            min-height: 300px;
+            min-height: 200px;
+            max-height: 60vh;
         }
 
         .video-container {
-            flex: 1;
+            flex: 0 1 auto;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -96,11 +96,13 @@
             border-radius: 8px;
             overflow: hidden;
             position: relative;
+            max-height: calc(60vh - 100px);
         }
 
         .video-container video, .video-container canvas {
             max-width: 100%;
             max-height: 100%;
+            object-fit: contain;
         }
 
         .video-controls {
@@ -928,19 +930,24 @@
                     fullCtx.putImageData(imageData, 0, 0);
                 }
 
-                // Capture thumbnail
+                // Capture thumbnail (aspect ratio beibehalten)
+                const vw = this.video.videoWidth;
+                const vh = this.video.videoHeight;
+                const thumbWidth = 160;
+                const thumbHeight = Math.round(thumbWidth * (vh / vw));
                 const thumbCanvas = document.createElement('canvas');
-                thumbCanvas.width = 160;
-                thumbCanvas.height = 90;
+                thumbCanvas.width = thumbWidth;
+                thumbCanvas.height = thumbHeight;
                 const thumbCtx = thumbCanvas.getContext('2d');
-                thumbCtx.drawImage(fullCanvas, 0, 0, thumbCanvas.width, thumbCanvas.height);
+                thumbCtx.drawImage(fullCanvas, 0, 0, thumbWidth, thumbHeight);
 
                 const frame = {
                     time: time,
                     frameNumber: Math.floor(time * this.fps),
                     dataUrl: fullCanvas.toDataURL('image/png'),
-                    thumbnailUrl: thumbCanvas.toDataURL('image/jpeg', 0.8),
-                    lutApplied: this.lutLoaded && this.applyLut
+                    thumbnailUrl: thumbCanvas.toDataURL('image/jpeg', 0.85),
+                    lutApplied: this.lutLoaded && this.applyLut,
+                    aspectRatio: vw / vh
                 };
 
                 this.frames.push(frame);
@@ -975,9 +982,12 @@
                     const img = document.createElement('img');
                     img.src = frame.thumbnailUrl;
                     img.style.width = '100%';
-                    img.style.height = '79px';
-                    img.style.objectFit = 'cover';
+                    img.style.height = 'auto';
+                    img.style.minHeight = '60px';
+                    img.style.maxHeight = '180px';
+                    img.style.objectFit = 'contain';
                     img.style.display = 'block';
+                    img.style.background = '#000';
                     div.appendChild(img);
 
                     const removeBtn = document.createElement('button');
@@ -1118,7 +1128,9 @@
 
                 for (const candidate of bestFrames) {
                     await this.seekToAsync(candidate.time);
-                    await new Promise(r => setTimeout(r, 50)); // Kurz warten für stabiles Bild
+                    // Warten bis Frame tatsächlich gerendert ist
+                    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+                    await new Promise(r => setTimeout(r, 100));
 
                     // Direkt Frame hinzufügen (ohne Duplikat-Check, da neue Analyse)
                     this.addFrameAtTime(candidate.time, candidate.score);
@@ -1170,34 +1182,51 @@
             }
 
             addFrameAtTime(time, score) {
+                // Prüfen ob Video bereit ist
+                if (this.video.readyState < 2) {
+                    console.warn('Video not ready for frame capture at', time);
+                    return;
+                }
+
+                const vw = this.video.videoWidth;
+                const vh = this.video.videoHeight;
+
+                if (vw === 0 || vh === 0) {
+                    console.warn('Video dimensions not available');
+                    return;
+                }
+
                 // Create full-res frame with optional LUT
                 const fullCanvas = document.createElement('canvas');
-                fullCanvas.width = this.video.videoWidth;
-                fullCanvas.height = this.video.videoHeight;
+                fullCanvas.width = vw;
+                fullCanvas.height = vh;
                 const fullCtx = fullCanvas.getContext('2d');
-                fullCtx.drawImage(this.video, 0, 0, fullCanvas.width, fullCanvas.height);
+                fullCtx.drawImage(this.video, 0, 0, vw, vh);
 
                 // Apply LUT if enabled
                 if (this.lutLoaded && this.applyLut) {
-                    const imageData = fullCtx.getImageData(0, 0, fullCanvas.width, fullCanvas.height);
+                    const imageData = fullCtx.getImageData(0, 0, vw, vh);
                     this.lutProcessor.applyToImageData(imageData);
                     fullCtx.putImageData(imageData, 0, 0);
                 }
 
-                // Capture thumbnail
+                // Capture thumbnail (aspect ratio beibehalten)
+                const thumbWidth = 160;
+                const thumbHeight = Math.round(thumbWidth * (vh / vw));
                 const thumbCanvas = document.createElement('canvas');
-                thumbCanvas.width = 160;
-                thumbCanvas.height = 90;
+                thumbCanvas.width = thumbWidth;
+                thumbCanvas.height = thumbHeight;
                 const thumbCtx = thumbCanvas.getContext('2d');
-                thumbCtx.drawImage(fullCanvas, 0, 0, thumbCanvas.width, thumbCanvas.height);
+                thumbCtx.drawImage(fullCanvas, 0, 0, thumbWidth, thumbHeight);
 
                 const frame = {
                     time: time,
                     frameNumber: Math.floor(time * this.fps),
                     dataUrl: fullCanvas.toDataURL('image/png'),
-                    thumbnailUrl: thumbCanvas.toDataURL('image/jpeg', 0.8),
+                    thumbnailUrl: thumbCanvas.toDataURL('image/jpeg', 0.85),
                     lutApplied: this.lutLoaded && this.applyLut,
-                    score: score
+                    score: score,
+                    aspectRatio: vw / vh
                 };
 
                 this.frames.push(frame);
