@@ -9,6 +9,7 @@ Ein Tool zum automatischen Extrahieren von hochwertigen Screenshots aus Videos, 
 - **LUT-Farbkorrektur**: Unterstützung für .cube LUT-Dateien zur Farbkorrektur
 - **Verschiedene Projekttypen**: Optimierte Einstellungen für Podcast, Dokumentation, Commercial, Interview, B-Roll
 - **Flexible Export-Optionen**: PNG, JPG, TIFF, WebP, BMP mit einstellbarer Qualität
+- **Web-App**: Browser-basierte Version mit Chunked Upload für große Dateien (bis 10GB)
 
 ## Installation
 
@@ -21,7 +22,7 @@ Ein Tool zum automatischen Extrahieren von hochwertigen Screenshots aus Videos, 
 
 ```bash
 # Repository klonen
-git clone https://github.com/DEIN_USERNAME/podcast-screenshot-tool.git
+git clone https://github.com/alexstoesslein/podcast-screenshot-tool.git
 cd podcast-screenshot-tool
 
 # Virtual Environment erstellen
@@ -30,10 +31,23 @@ source venv/bin/activate
 
 # Dependencies installieren
 pip install -r requirements.txt
+```
 
-# App starten
+## Starten
+
+### Desktop App (PyQt6)
+
+```bash
 python -m src.gui.main_window
 ```
+
+### Web App (Flask)
+
+```bash
+python web/app.py
+```
+
+Dann öffne http://127.0.0.1:5001 im Browser.
 
 ### macOS App erstellen
 

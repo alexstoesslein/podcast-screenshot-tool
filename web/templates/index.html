@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Screenshot Tool</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <h1>Screenshot Tool</h1>
+            <p class="subtitle">Extrahiere hochwertige Screenshots aus Videos</p>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Left Panel: Video -->
+            <section class="video-panel">
+                <!-- Upload Area -->
+                <div id="upload-area" class="upload-area">
+                    <div class="upload-icon">📹</div>
+                    <h2>Video hochladen</h2>
+                    <p>Ziehe eine Videodatei hierher oder klicke zum Auswählen</p>
+                    <p class="upload-formats">MP4, MOV, MKV, AVI, WebM</p>
+                    <input type="file" id="file-input" accept="video/*" hidden>
+                    <button class="btn btn-primary" onclick="document.getElementById('file-input').click()">
+                        Video auswählen
+                    </button>
+                </div>
+
+                <!-- Upload Progress -->
+                <div id="upload-progress" class="upload-progress hidden">
+                    <h3>Upload läuft...</h3>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="upload-progress-fill"></div>
+                    </div>
+                    <p id="upload-progress-text">0%</p>
+                </div>
+
+                <!-- Video Preview -->
+                <div id="video-preview" class="video-preview hidden">
+                    <div class="video-container">
+                        <img id="frame-image" alt="Video Frame">
+                    </div>
+                    <div class="video-controls">
+                        <span id="current-time">00:00.00</span>
+                        <input type="range" id="timeline-slider" min="0" max="100" value="0">
+                        <span id="duration">00:00.00</span>
+                    </div>
+                    <div class="video-buttons">
+                        <button class="btn btn-icon" id="prev-frame-btn">◀</button>
+                        <button class="btn btn-icon" id="next-frame-btn">▶</button>
+                        <button class="btn btn-primary" id="add-frame-btn">+ Frame hinzufügen</button>
+                        <span id="frame-info">Frame: 0 / 0</span>
+                    </div>
+                </div>
+
+                <!-- Selected Frames -->
+                <div id="frames-section" class="frames-section hidden">
+                    <h3>Ausgewählte Frames</h3>
+                    <div id="frames-list" class="frames-list"></div>
+                </div>
+            </section>
+
+            <!-- Right Panel: Settings -->
+            <aside class="sidebar">
+                <div class="sidebar-content">
+                    <!-- Project Type -->
+                    <div class="settings-section">
+                        <h3>Projekt</h3>
+                        <select id="project-type">
+                            <option value="Podcast">Podcast</option>
+                            <option value="Dokumentation">Dokumentation</option>
+                            <option value="Commercial">Commercial</option>
+                            <option value="Interview">Interview</option>
+                            <option value="B-Roll">B-Roll</option>
+                        </select>
+                    </div>
+
+                    <hr class="separator">
+
+                    <!-- Analysis -->
+                    <div class="settings-section">
+                        <h3>Analyse</h3>
+                        <div class="form-row">
+                            <label>Screenshots:</label>
+                            <input type="number" id="num-screenshots" min="1" max="50" value="5">
+                        </div>
+                        <button class="btn btn-full" id="analyze-btn" disabled>Video analysieren</button>
+                        <div id="analysis-progress" class="analysis-progress hidden">
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="analysis-progress-fill"></div>
+                            </div>
+                            <p id="analysis-progress-text">Analysiere...</p>
+                        </div>
+                    </div>
+
+                    <hr class="separator">
+
+                    <!-- LUT -->
+                    <div class="settings-section">
+                        <h3>Farbkorrektur</h3>
+                        <input type="file" id="lut-input" accept=".cube" hidden>
+                        <button class="btn btn-full" onclick="document.getElementById('lut-input').click()">
+                            LUT laden...
+                        </button>
+                        <p id="lut-label" class="secondary-text">Kein LUT geladen</p>
+                        <div class="checkbox-row">
+                            <label><input type="checkbox" id="apply-lut" disabled> Anwenden</label>
+                            <label><input type="checkbox" id="preview-lut" disabled> Vorschau</label>
+                        </div>
+                    </div>
+
+                    <hr class="separator">
+
+                    <!-- Export -->
+                    <div class="settings-section">
+                        <h3>Export</h3>
+                        <div class="form-row">
+                            <label>Format:</label>
+                            <select id="export-format">
+                                <option value="PNG">PNG</option>
+                                <option value="JPG">JPG</option>
+                                <option value="TIFF">TIFF</option>
+                                <option value="WebP">WebP</option>
+                                <option value="BMP">BMP</option>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <label>Qualität:</label>
+                            <input type="range" id="quality-slider" min="1" max="100" value="95">
+                            <span id="quality-value">95%</span>
+                        </div>
+                        <p class="secondary-text" id="quality-info">Nur für JPG/WebP</p>
+                    </div>
+
+                    <div class="sidebar-footer">
+                        <button class="btn btn-primary btn-full" id="export-btn" disabled>
+                            Screenshots exportieren
+                        </button>
+                    </div>
+                </div>
+            </aside>
+        </main>
+
+        <!-- Status Bar -->
+        <footer class="status-bar">
+            <span id="status-text">Bereit – Lade ein Video hoch um zu starten</span>
+        </footer>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
