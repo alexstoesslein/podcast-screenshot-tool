@@ -939,7 +939,7 @@
                     time: time,
                     frameNumber: Math.floor(time * this.fps),
                     dataUrl: fullCanvas.toDataURL('image/png'),
-                    thumbnail: thumbCanvas,
+                    thumbnailUrl: thumbCanvas.toDataURL('image/jpeg', 0.8),
                     lutApplied: this.lutLoaded && this.applyLut
                 };
 
@@ -971,7 +971,14 @@
                         this.updateTimeDisplay();
                     };
 
-                    div.appendChild(frame.thumbnail.cloneNode(true));
+                    // Thumbnail als Image-Element (nicht Canvas cloneNode)
+                    const img = document.createElement('img');
+                    img.src = frame.thumbnailUrl;
+                    img.style.width = '100%';
+                    img.style.height = '79px';
+                    img.style.objectFit = 'cover';
+                    img.style.display = 'block';
+                    div.appendChild(img);
 
                     const removeBtn = document.createElement('button');
                     removeBtn.className = 'remove-btn';
@@ -1188,7 +1195,7 @@
                     time: time,
                     frameNumber: Math.floor(time * this.fps),
                     dataUrl: fullCanvas.toDataURL('image/png'),
-                    thumbnail: thumbCanvas,
+                    thumbnailUrl: thumbCanvas.toDataURL('image/jpeg', 0.8),
                     lutApplied: this.lutLoaded && this.applyLut,
                     score: score
                 };
