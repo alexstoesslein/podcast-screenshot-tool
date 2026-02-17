@@ -1,0 +1,66 @@
+{
+  "name": "screenshot-tool",
+  "version": "1.0.0",
+  "description": "Extrahiere hochwertige Screenshots aus Videos – mit Auto-Analyse und LUT-Farbkorrektur",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "build:mac": "electron-builder --mac",
+    "build:win": "electron-builder --win",
+    "build:linux": "electron-builder --linux"
+  },
+  "author": "Alex Stößlein",
+  "license": "MIT",
+  "build": {
+    "appId": "com.alexstoesslein.screenshot-tool",
+    "productName": "Screenshot Tool",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "app/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.video",
+      "icon": "assets/icon.icns",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["universal"]
+        }
+      ],
+      "darkModeSupport": true
+    },
+    "win": {
+      "icon": "assets/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "linux": {
+      "icon": "assets/icon.png",
+      "target": ["AppImage"],
+      "category": "Video"
+    },
+    "dmg": {
+      "title": "Screenshot Tool",
+      "contents": [
+        { "x": 130, "y": 220 },
+        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+      ]
+    },
+    "nsis": {
+      "oneClick": true,
+      "allowToChangeInstallationDirectory": false
+    }
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  }
+}

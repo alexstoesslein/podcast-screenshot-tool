@@ -1,0 +1,1256 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Screenshot Tool</title>
+    <style>
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f5f5f7;
+            --bg-dark: #1a1a1a;
+            --text-primary: #1d1d1f;
+            --text-secondary: #6e6e73;
+            --accent-blue: #007aff;
+            --accent-blue-hover: #0056cc;
+            --accent-green: #34c759;
+            --border-light: #d2d2d7;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+            font-size: 14px;
+            color: var(--text-primary);
+            background: var(--bg-secondary);
+            min-height: 100vh;
+        }
+
+        .app {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: var(--bg-primary);
+            padding: 16px 24px 16px 80px;
+            border-bottom: 1px solid var(--border-light);
+            -webkit-app-region: drag;
+        }
+
+        .header * { -webkit-app-region: no-drag; }
+
+        .header h1 { font-size: 20px; font-weight: 600; }
+        .header .subtitle { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+
+        .main-content {
+            display: flex;
+            flex: 1;
+            gap: 16px;
+            padding: 16px;
+            overflow: hidden;
+        }
+
+        .video-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            min-width: 0;
+        }
+
+        .upload-area {
+            background: var(--bg-primary);
+            border: 2px dashed var(--border-light);
+            border-radius: 12px;
+            padding: 48px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .upload-area:hover, .upload-area.dragover {
+            border-color: var(--accent-blue);
+            background: #f0f7ff;
+        }
+
+        .upload-icon { font-size: 48px; margin-bottom: 16px; }
+        .upload-area h2 { font-size: 18px; margin-bottom: 8px; }
+        .upload-area p { color: var(--text-secondary); margin-bottom: 8px; }
+
+        .video-preview {
+            background: var(--bg-dark);
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            min-height: 200px;
+        }
+
+        .video-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            min-height: 200px;
+        }
+
+        .video-container video {
+            display: none;
+        }
+
+        .video-container canvas {
+            max-width: 100%;
+            max-height: 65vh;
+            object-fit: contain;
+        }
+
+        .video-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 16px;
+            color: #fff;
+            font-size: 13px;
+        }
+
+        .video-controls input[type="range"] {
+            flex: 1;
+            height: 6px;
+            -webkit-appearance: none;
+            background: #3a3a3a;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .video-controls input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #fff;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .video-buttons {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .video-buttons #frame-info {
+            margin-left: auto;
+            color: #888;
+            font-size: 13px;
+        }
+
+        .frames-section {
+            background: var(--bg-primary);
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        .frames-section h3 { font-size: 16px; margin-bottom: 12px; }
+
+        .frames-list {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+            min-height: 100px;
+        }
+
+        .frame-thumbnail {
+            flex-shrink: 0;
+            width: 140px;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .frame-thumbnail canvas {
+            width: 100%;
+            height: 79px;
+            object-fit: cover;
+        }
+
+        .frame-thumbnail .frame-info {
+            padding: 8px;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .frame-thumbnail .remove-btn {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 24px;
+            height: 24px;
+            background: rgba(0,0,0,0.6);
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .frame-thumbnail .remove-btn:hover { background: #ff3b30; }
+
+        .sidebar {
+            width: 300px;
+            flex-shrink: 0;
+            background: var(--bg-primary);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - 130px);
+            overflow-y: auto;
+        }
+
+        .sidebar-content { padding: 16px; }
+
+        .settings-section { margin-bottom: 16px; }
+        .settings-section h3 { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
+
+        .separator { border: none; border-top: 1px solid var(--border-light); margin: 16px 0; }
+
+        .form-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        select, input[type="number"] {
+            padding: 10px 14px;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            font-size: 14px;
+            background: var(--bg-primary);
+            flex: 1;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            transition: all 0.2s;
+        }
+
+        .btn:hover { background: var(--bg-secondary); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .btn-primary {
+            background: var(--accent-blue);
+            border: none;
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .btn-primary:hover { background: var(--accent-blue-hover); }
+        .btn-full { width: 100%; }
+
+        .btn-icon {
+            padding: 8px 16px;
+            min-width: 44px;
+            background: #3a3a3a;
+            border: none;
+            color: #fff;
+        }
+
+        .btn-icon:hover { background: #4a4a4a; }
+
+        .secondary-text { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+
+        .status-bar {
+            background: var(--bg-primary);
+            padding: 8px 24px;
+            border-top: 1px solid var(--border-light);
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .hidden { display: none !important; }
+
+        .progress-bar {
+            height: 8px;
+            background: var(--bg-secondary);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 8px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--accent-blue);
+            border-radius: 4px;
+            transition: width 0.3s;
+            width: 0%;
+        }
+
+        @media (max-width: 900px) {
+            .main-content { flex-direction: column; }
+            .sidebar { width: 100%; max-height: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <header class="header">
+            <h1>Screenshot Tool</h1>
+            <p class="subtitle">Extrahiere hochwertige Screenshots aus Videos</p>
+        </header>
+
+        <main class="main-content">
+            <section class="video-panel">
+                <div id="upload-area" class="upload-area">
+                    <div class="upload-icon">📹</div>
+                    <h2>Video hochladen</h2>
+                    <p>Ziehe eine Videodatei hierher oder klicke zum Auswählen</p>
+                    <p class="secondary-text">MP4, MOV, WebM – Verarbeitung erfolgt lokal</p>
+                    <input type="file" id="file-input" accept="video/*" hidden>
+                    <button class="btn btn-primary" onclick="document.getElementById('file-input').click()">
+                        Video auswählen
+                    </button>
+                </div>
+
+                <div id="video-preview" class="video-preview hidden">
+                    <div class="video-container">
+                        <video id="video-element" style="display:none;"></video>
+                        <canvas id="frame-canvas"></canvas>
+                    </div>
+                    <div class="video-controls">
+                        <span id="current-time">00:00.00</span>
+                        <input type="range" id="timeline-slider" min="0" max="100" value="0" step="0.001">
+                        <span id="duration">00:00.00</span>
+                    </div>
+                    <div class="video-buttons">
+                        <button class="btn btn-icon" id="prev-frame-btn">◀</button>
+                        <button class="btn btn-icon" id="next-frame-btn">▶</button>
+                        <button class="btn btn-primary" id="add-frame-btn">+ Frame hinzufügen</button>
+                        <span id="frame-info">Frame: 0 / 0</span>
+                    </div>
+                </div>
+
+                <div id="frames-section" class="frames-section hidden">
+                    <h3>Ausgewählte Frames (<span id="frame-count">0</span>)</h3>
+                    <div id="frames-list" class="frames-list"></div>
+                </div>
+            </section>
+
+            <aside class="sidebar">
+                <div class="sidebar-content">
+                    <div class="settings-section">
+                        <h3>Export</h3>
+                        <div class="form-row">
+                            <label>Format:</label>
+                            <select id="export-format">
+                                <option value="png">PNG</option>
+                                <option value="jpeg">JPG</option>
+                                <option value="webp">WebP</option>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <label>Qualität:</label>
+                            <input type="range" id="quality-slider" min="1" max="100" value="95">
+                            <span id="quality-value">95%</span>
+                        </div>
+                        <p class="secondary-text" id="quality-info">Für JPG/WebP</p>
+                    </div>
+
+                    <hr class="separator">
+
+                    <div class="settings-section">
+                        <h3>Farbkorrektur (LUT)</h3>
+                        <input type="file" id="lut-input" accept=".cube" hidden>
+                        <button class="btn btn-full" id="lut-btn" style="margin-bottom: 8px;">
+                            LUT laden (.cube)
+                        </button>
+                        <p id="lut-label" class="secondary-text">Kein LUT geladen</p>
+                        <div class="form-row" style="margin-top: 8px;">
+                            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                                <input type="checkbox" id="apply-lut" disabled> LUT anwenden
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                                <input type="checkbox" id="preview-lut" disabled> Vorschau
+                            </label>
+                        </div>
+                    </div>
+
+                    <hr class="separator">
+
+                    <div class="settings-section">
+                        <h3>Auto-Analyse</h3>
+                        <button class="btn btn-primary btn-full" id="analyze-btn" disabled style="margin-bottom: 8px;">
+                            🔍 Video analysieren
+                        </button>
+                        <div id="analysis-progress" class="hidden">
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="analysis-progress-fill"></div>
+                            </div>
+                            <p class="secondary-text" id="analysis-status">Analysiere...</p>
+                        </div>
+                        <div class="form-row" style="margin-top: 8px;">
+                            <label>Max. Frames:</label>
+                            <select id="max-frames">
+                                <option value="5">5</option>
+                                <option value="10" selected>10</option>
+                                <option value="20">20</option>
+                                <option value="50">50</option>
+                            </select>
+                        </div>
+                        <p class="secondary-text">Findet automatisch die besten Screenshot-Stellen</p>
+                    </div>
+
+                    <hr class="separator">
+
+                    <div class="settings-section">
+                        <h3>Aktionen</h3>
+                        <button class="btn btn-full" id="capture-btn" disabled style="margin-bottom: 8px;">
+                            Aktuelles Frame speichern
+                        </button>
+                        <button class="btn btn-primary btn-full" id="export-btn" disabled>
+                            Alle Screenshots exportieren
+                        </button>
+                    </div>
+
+                    <hr class="separator">
+
+                    <div class="settings-section">
+                        <h3>Info</h3>
+                        <p class="secondary-text">
+                            Alle Verarbeitung erfolgt lokal auf deinem Rechner.
+                            Keine Daten werden hochgeladen.
+                        </p>
+                        <p class="secondary-text" style="margin-top: 8px;">
+                            Tastenkürzel:<br>
+                            ← → Frame vor/zurück<br>
+                            Leertaste: Frame hinzufügen
+                        </p>
+                    </div>
+                </div>
+            </aside>
+        </main>
+
+        <footer class="status-bar">
+            <span id="status-text">Bereit – Lade ein Video um zu starten</span>
+        </footer>
+    </div>
+
+    <script>
+        // Frame Analyzer - Schärfe & Gesichtserkennung
+        class FrameAnalyzer {
+            constructor() {
+                this.analysisCanvas = document.createElement('canvas');
+                this.analysisCtx = this.analysisCanvas.getContext('2d', { willReadFrequently: true });
+            }
+
+            // Berechnet die Schärfe eines Frames (Laplacian Varianz)
+            calculateSharpness(imageData) {
+                const data = imageData.data;
+                const width = imageData.width;
+                const height = imageData.height;
+
+                // In Graustufen umwandeln
+                const gray = new Float32Array(width * height);
+                for (let i = 0; i < data.length; i += 4) {
+                    gray[i / 4] = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+                }
+
+                // Laplacian Filter anwenden
+                let sum = 0;
+                let sumSq = 0;
+                let count = 0;
+
+                for (let y = 1; y < height - 1; y++) {
+                    for (let x = 1; x < width - 1; x++) {
+                        const idx = y * width + x;
+                        const laplacian =
+                            -gray[idx - width] - gray[idx - 1] + 4 * gray[idx] - gray[idx + 1] - gray[idx + width];
+                        sum += laplacian;
+                        sumSq += laplacian * laplacian;
+                        count++;
+                    }
+                }
+
+                // Varianz berechnen
+                const mean = sum / count;
+                const variance = (sumSq / count) - (mean * mean);
+                return variance;
+            }
+
+            // Erkennt Hautfarben als Proxy für Gesichtserkennung
+            detectFaces(imageData) {
+                const data = imageData.data;
+                let skinPixels = 0;
+                const totalPixels = data.length / 4;
+
+                for (let i = 0; i < data.length; i += 4) {
+                    const r = data[i];
+                    const g = data[i + 1];
+                    const b = data[i + 2];
+
+                    // Hautfarben-Erkennung (funktioniert für verschiedene Hauttöne)
+                    if (this.isSkinColor(r, g, b)) {
+                        skinPixels++;
+                    }
+                }
+
+                // Prozent der Hautpixel (10-40% ist typisch für Portraitaufnahmen)
+                const skinRatio = skinPixels / totalPixels;
+
+                // Score: optimal bei ~15-25% Hautanteil
+                if (skinRatio >= 0.08 && skinRatio <= 0.45) {
+                    return Math.min(1, skinRatio * 3);
+                }
+                return skinRatio * 0.5;
+            }
+
+            isSkinColor(r, g, b) {
+                // Mehrere Hautfarben-Regeln für verschiedene Hauttöne
+                const max = Math.max(r, g, b);
+                const min = Math.min(r, g, b);
+
+                // Regel 1: RGB Verhältnisse
+                if (r > 95 && g > 40 && b > 20 &&
+                    r > g && r > b &&
+                    (max - min) > 15 &&
+                    Math.abs(r - g) > 15) {
+                    return true;
+                }
+
+                // Regel 2: Für dunklere Hauttöne
+                if (r > 60 && g > 40 && b > 30 &&
+                    r >= g && g >= b &&
+                    r - b > 10) {
+                    return true;
+                }
+
+                return false;
+            }
+
+            // Berechnet Bildstabilität (wenig Bewegungsunschärfe)
+            calculateStability(imageData) {
+                const data = imageData.data;
+                const width = imageData.width;
+                const height = imageData.height;
+
+                // Horizontale Kanten zählen
+                let edgeSum = 0;
+                for (let y = 0; y < height; y++) {
+                    for (let x = 1; x < width - 1; x++) {
+                        const idx = (y * width + x) * 4;
+                        const left = data[idx - 4] + data[idx - 3] + data[idx - 2];
+                        const right = data[idx + 4] + data[idx + 5] + data[idx + 6];
+                        edgeSum += Math.abs(right - left);
+                    }
+                }
+
+                return edgeSum / (width * height);
+            }
+
+            // Analysiert einen Frame und gibt einen Score zurück
+            analyzeFrame(video, width, height) {
+                // Auf kleinere Größe skalieren für schnellere Analyse
+                const analyzeWidth = Math.min(320, width);
+                const analyzeHeight = Math.round(analyzeWidth * (height / width));
+
+                this.analysisCanvas.width = analyzeWidth;
+                this.analysisCanvas.height = analyzeHeight;
+                this.analysisCtx.drawImage(video, 0, 0, analyzeWidth, analyzeHeight);
+
+                const imageData = this.analysisCtx.getImageData(0, 0, analyzeWidth, analyzeHeight);
+
+                const sharpness = this.calculateSharpness(imageData);
+                const faceScore = this.detectFaces(imageData);
+                const stability = this.calculateStability(imageData);
+
+                // Gewichteter Score
+                const score = (sharpness / 1000) * 0.4 + faceScore * 0.4 + (stability / 100) * 0.2;
+
+                return {
+                    sharpness,
+                    faceScore,
+                    stability,
+                    totalScore: score
+                };
+            }
+        }
+
+        // LUT Parser and Processor
+        class LUTProcessor {
+            constructor() {
+                this.lutData = null;
+                this.lutSize = 0;
+                this.lutName = '';
+            }
+
+            parse(cubeContent) {
+                const lines = cubeContent.split('\n');
+                let size = 0;
+                const data = [];
+
+                for (const line of lines) {
+                    const trimmed = line.trim();
+
+                    // Skip empty lines and comments
+                    if (!trimmed || trimmed.startsWith('#')) continue;
+
+                    // Parse TITLE
+                    if (trimmed.startsWith('TITLE')) {
+                        this.lutName = trimmed.substring(5).trim().replace(/"/g, '');
+                        continue;
+                    }
+
+                    // Parse LUT_3D_SIZE
+                    if (trimmed.startsWith('LUT_3D_SIZE')) {
+                        size = parseInt(trimmed.split(/\s+/)[1]);
+                        continue;
+                    }
+
+                    // Skip other metadata
+                    if (trimmed.startsWith('DOMAIN_MIN') || trimmed.startsWith('DOMAIN_MAX')) continue;
+
+                    // Parse color values
+                    const parts = trimmed.split(/\s+/).map(parseFloat);
+                    if (parts.length === 3 && !isNaN(parts[0])) {
+                        data.push(parts);
+                    }
+                }
+
+                if (size === 0 || data.length !== size * size * size) {
+                    throw new Error(`Ungültige LUT-Datei: Erwartet ${size * size * size} Einträge, gefunden ${data.length}`);
+                }
+
+                this.lutSize = size;
+                this.lutData = data;
+
+                return true;
+            }
+
+            // Trilinear interpolation for LUT lookup
+            lookup(r, g, b) {
+                if (!this.lutData) return [r, g, b];
+
+                const size = this.lutSize;
+                const maxIdx = size - 1;
+
+                // Scale to LUT indices
+                const rScaled = r * maxIdx;
+                const gScaled = g * maxIdx;
+                const bScaled = b * maxIdx;
+
+                // Get integer and fractional parts
+                const r0 = Math.min(Math.floor(rScaled), maxIdx - 1);
+                const g0 = Math.min(Math.floor(gScaled), maxIdx - 1);
+                const b0 = Math.min(Math.floor(bScaled), maxIdx - 1);
+
+                const rFrac = rScaled - r0;
+                const gFrac = gScaled - g0;
+                const bFrac = bScaled - b0;
+
+                // Get 8 surrounding cube corners
+                // LUT is stored in BGR order (B varies fastest)
+                const getIdx = (ri, gi, bi) => bi + gi * size + ri * size * size;
+
+                const c000 = this.lutData[getIdx(r0, g0, b0)];
+                const c001 = this.lutData[getIdx(r0, g0, b0 + 1)];
+                const c010 = this.lutData[getIdx(r0, g0 + 1, b0)];
+                const c011 = this.lutData[getIdx(r0, g0 + 1, b0 + 1)];
+                const c100 = this.lutData[getIdx(r0 + 1, g0, b0)];
+                const c101 = this.lutData[getIdx(r0 + 1, g0, b0 + 1)];
+                const c110 = this.lutData[getIdx(r0 + 1, g0 + 1, b0)];
+                const c111 = this.lutData[getIdx(r0 + 1, g0 + 1, b0 + 1)];
+
+                // Trilinear interpolation
+                const lerp = (a, b, t) => a + t * (b - a);
+
+                const result = [0, 0, 0];
+                for (let i = 0; i < 3; i++) {
+                    const c00 = lerp(c000[i], c100[i], rFrac);
+                    const c01 = lerp(c001[i], c101[i], rFrac);
+                    const c10 = lerp(c010[i], c110[i], rFrac);
+                    const c11 = lerp(c011[i], c111[i], rFrac);
+
+                    const c0 = lerp(c00, c10, gFrac);
+                    const c1 = lerp(c01, c11, gFrac);
+
+                    result[i] = lerp(c0, c1, bFrac);
+                }
+
+                return result;
+            }
+
+            applyToImageData(imageData) {
+                if (!this.lutData) return imageData;
+
+                const data = imageData.data;
+
+                for (let i = 0; i < data.length; i += 4) {
+                    const r = data[i] / 255;
+                    const g = data[i + 1] / 255;
+                    const b = data[i + 2] / 255;
+
+                    const [newR, newG, newB] = this.lookup(r, g, b);
+
+                    data[i] = Math.max(0, Math.min(255, Math.round(newR * 255)));
+                    data[i + 1] = Math.max(0, Math.min(255, Math.round(newG * 255)));
+                    data[i + 2] = Math.max(0, Math.min(255, Math.round(newB * 255)));
+                }
+
+                return imageData;
+            }
+        }
+
+        class ScreenshotTool {
+            constructor() {
+                this.video = document.getElementById('video-element');
+                this.canvas = document.getElementById('frame-canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.frames = [];
+                this.fps = 30;
+
+                // LUT
+                this.lutProcessor = new LUTProcessor();
+                this.lutLoaded = false;
+                this.applyLut = false;
+                this.previewLut = false;
+
+                // Analyzer
+                this.frameAnalyzer = new FrameAnalyzer();
+                this.isAnalyzing = false;
+
+                this.initElements();
+                this.initEventListeners();
+            }
+
+            initElements() {
+                this.uploadArea = document.getElementById('upload-area');
+                this.fileInput = document.getElementById('file-input');
+                this.videoPreview = document.getElementById('video-preview');
+                this.framesSection = document.getElementById('frames-section');
+                this.framesList = document.getElementById('frames-list');
+                this.frameCount = document.getElementById('frame-count');
+                this.timelineSlider = document.getElementById('timeline-slider');
+                this.currentTimeEl = document.getElementById('current-time');
+                this.durationEl = document.getElementById('duration');
+                this.frameInfo = document.getElementById('frame-info');
+                this.qualitySlider = document.getElementById('quality-slider');
+                this.qualityValue = document.getElementById('quality-value');
+                this.exportFormat = document.getElementById('export-format');
+                this.captureBtn = document.getElementById('capture-btn');
+                this.exportBtn = document.getElementById('export-btn');
+                this.statusText = document.getElementById('status-text');
+
+                // LUT elements
+                this.lutInput = document.getElementById('lut-input');
+                this.lutBtn = document.getElementById('lut-btn');
+                this.lutLabel = document.getElementById('lut-label');
+                this.applyLutCheckbox = document.getElementById('apply-lut');
+                this.previewLutCheckbox = document.getElementById('preview-lut');
+
+                // Analyze elements
+                this.analyzeBtn = document.getElementById('analyze-btn');
+                this.analysisProgress = document.getElementById('analysis-progress');
+                this.analysisProgressFill = document.getElementById('analysis-progress-fill');
+                this.analysisStatus = document.getElementById('analysis-status');
+                this.maxFramesSelect = document.getElementById('max-frames');
+            }
+
+            initEventListeners() {
+                this.fileInput.addEventListener('change', (e) => this.loadVideo(e.target.files[0]));
+
+                // LUT events
+                this.lutBtn.addEventListener('click', () => this.lutInput.click());
+                this.lutInput.addEventListener('change', (e) => this.loadLUT(e.target.files[0]));
+                this.applyLutCheckbox.addEventListener('change', () => {
+                    this.applyLut = this.applyLutCheckbox.checked;
+                });
+                this.previewLutCheckbox.addEventListener('change', () => {
+                    this.previewLut = this.previewLutCheckbox.checked;
+                    if (this.video.readyState >= 2) this.drawFrame();
+                });
+
+                this.uploadArea.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    this.uploadArea.classList.add('dragover');
+                });
+                this.uploadArea.addEventListener('dragleave', () => {
+                    this.uploadArea.classList.remove('dragover');
+                });
+                this.uploadArea.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    this.uploadArea.classList.remove('dragover');
+                    if (e.dataTransfer.files.length) this.loadVideo(e.dataTransfer.files[0]);
+                });
+
+                this.timelineSlider.addEventListener('input', () => this.seekTo(this.timelineSlider.value / 1000));
+
+                document.getElementById('prev-frame-btn').addEventListener('click', () => this.stepFrame(-1));
+                document.getElementById('next-frame-btn').addEventListener('click', () => this.stepFrame(1));
+                document.getElementById('add-frame-btn').addEventListener('click', () => this.addCurrentFrame());
+
+                this.qualitySlider.addEventListener('input', () => {
+                    this.qualityValue.textContent = this.qualitySlider.value + '%';
+                });
+
+                this.captureBtn.addEventListener('click', () => this.downloadCurrentFrame());
+                this.exportBtn.addEventListener('click', () => this.exportAllFrames());
+                this.analyzeBtn.addEventListener('click', () => this.analyzeVideo());
+
+                document.addEventListener('keydown', (e) => {
+                    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+                    if (e.key === 'ArrowLeft') this.stepFrame(-1);
+                    if (e.key === 'ArrowRight') this.stepFrame(1);
+                    if (e.key === ' ') { e.preventDefault(); this.addCurrentFrame(); }
+                });
+
+                this.video.addEventListener('loadedmetadata', () => this.onVideoLoaded());
+                this.video.addEventListener('seeked', () => this.drawFrame());
+            }
+
+            loadVideo(file) {
+                if (!file) return;
+
+                const url = URL.createObjectURL(file);
+                this.video.src = url;
+                this.setStatus('Lade Video: ' + file.name);
+            }
+
+            loadLUT(file) {
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        this.lutProcessor.parse(e.target.result);
+                        this.lutLoaded = true;
+
+                        const name = this.lutProcessor.lutName || file.name.replace('.cube', '');
+                        this.lutLabel.textContent = name;
+                        this.applyLutCheckbox.disabled = false;
+                        this.previewLutCheckbox.disabled = false;
+                        this.applyLutCheckbox.checked = true;
+                        this.applyLut = true;
+
+                        this.setStatus(`LUT geladen: ${name} (${this.lutProcessor.lutSize}³)`);
+
+                        // Redraw with LUT if preview is on
+                        if (this.video.readyState >= 2) this.drawFrame();
+                    } catch (err) {
+                        this.setStatus('Fehler beim Laden der LUT: ' + err.message);
+                        console.error(err);
+                    }
+                };
+                reader.readAsText(file);
+            }
+
+            onVideoLoaded() {
+                this.uploadArea.classList.add('hidden');
+                this.videoPreview.classList.remove('hidden');
+                this.framesSection.classList.remove('hidden');
+                this.captureBtn.disabled = false;
+                this.analyzeBtn.disabled = false;
+
+                const duration = this.video.duration;
+                this.durationEl.textContent = this.formatTime(duration);
+                this.timelineSlider.max = Math.floor(duration * 1000);
+
+                // Estimate FPS (default 30 if unknown)
+                this.fps = 30;
+                this.totalFrames = Math.floor(duration * this.fps);
+
+                this.canvas.width = this.video.videoWidth;
+                this.canvas.height = this.video.videoHeight;
+
+                this.seekTo(0);
+                this.setStatus(`Video geladen: ${this.video.videoWidth}×${this.video.videoHeight} | ${this.formatTime(duration)} – Klicke "Video analysieren" für automatische Frame-Auswahl`);
+            }
+
+            seekTo(timePercent) {
+                const time = (timePercent * this.video.duration);
+                this.video.currentTime = Math.max(0, Math.min(time, this.video.duration));
+                this.updateTimeDisplay();
+            }
+
+            stepFrame(direction) {
+                const frameTime = 1 / this.fps;
+                this.video.currentTime = Math.max(0, Math.min(
+                    this.video.currentTime + (direction * frameTime),
+                    this.video.duration
+                ));
+                this.timelineSlider.value = (this.video.currentTime / this.video.duration) * 1000;
+                this.updateTimeDisplay();
+            }
+
+            updateTimeDisplay() {
+                this.currentTimeEl.textContent = this.formatTime(this.video.currentTime);
+                const currentFrame = Math.floor(this.video.currentTime * this.fps);
+                this.frameInfo.textContent = `Frame: ${currentFrame} / ${this.totalFrames}`;
+            }
+
+            drawFrame() {
+                this.ctx.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
+
+                // Apply LUT preview if enabled
+                if (this.lutLoaded && this.previewLut) {
+                    const imageData = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
+                    this.lutProcessor.applyToImageData(imageData);
+                    this.ctx.putImageData(imageData, 0, 0);
+                }
+            }
+
+            addCurrentFrame() {
+                const time = this.video.currentTime;
+
+                // Check if already added
+                if (this.frames.some(f => Math.abs(f.time - time) < 0.01)) {
+                    this.setStatus('Frame bereits in der Auswahl');
+                    return;
+                }
+
+                // Create full-res frame with optional LUT
+                const fullCanvas = document.createElement('canvas');
+                fullCanvas.width = this.video.videoWidth;
+                fullCanvas.height = this.video.videoHeight;
+                const fullCtx = fullCanvas.getContext('2d');
+                fullCtx.drawImage(this.video, 0, 0, fullCanvas.width, fullCanvas.height);
+
+                // Apply LUT if enabled
+                if (this.lutLoaded && this.applyLut) {
+                    const imageData = fullCtx.getImageData(0, 0, fullCanvas.width, fullCanvas.height);
+                    this.lutProcessor.applyToImageData(imageData);
+                    fullCtx.putImageData(imageData, 0, 0);
+                }
+
+                // Capture thumbnail (aspect ratio beibehalten)
+                const vw = this.video.videoWidth;
+                const vh = this.video.videoHeight;
+                const thumbWidth = 160;
+                const thumbHeight = Math.round(thumbWidth * (vh / vw));
+                const thumbCanvas = document.createElement('canvas');
+                thumbCanvas.width = thumbWidth;
+                thumbCanvas.height = thumbHeight;
+                const thumbCtx = thumbCanvas.getContext('2d');
+                thumbCtx.drawImage(fullCanvas, 0, 0, thumbWidth, thumbHeight);
+
+                const frame = {
+                    time: time,
+                    frameNumber: Math.floor(time * this.fps),
+                    dataUrl: fullCanvas.toDataURL('image/png'),
+                    thumbnailUrl: thumbCanvas.toDataURL('image/jpeg', 0.85),
+                    lutApplied: this.lutLoaded && this.applyLut,
+                    aspectRatio: vw / vh
+                };
+
+                this.frames.push(frame);
+                this.renderFramesList();
+                this.exportBtn.disabled = false;
+                const lutNote = frame.lutApplied ? ' (mit LUT)' : '';
+                this.setStatus(`Frame hinzugefügt${lutNote} – ${this.frames.length} Frames insgesamt`);
+            }
+
+            removeFrame(index) {
+                this.frames.splice(index, 1);
+                this.renderFramesList();
+                this.exportBtn.disabled = this.frames.length === 0;
+            }
+
+            renderFramesList() {
+                this.framesList.innerHTML = '';
+                this.frameCount.textContent = this.frames.length;
+
+                this.frames.forEach((frame, index) => {
+                    const div = document.createElement('div');
+                    div.className = 'frame-thumbnail';
+                    div.style.cursor = 'pointer';
+                    div.onclick = (e) => {
+                        if (e.target.classList.contains('remove-btn')) return;
+                        this.video.currentTime = frame.time;
+                        this.timelineSlider.value = (frame.time / this.video.duration) * 1000;
+                        this.updateTimeDisplay();
+                    };
+
+                    // Thumbnail als Image-Element (nicht Canvas cloneNode)
+                    const img = document.createElement('img');
+                    img.src = frame.thumbnailUrl;
+                    img.style.width = '100%';
+                    img.style.height = 'auto';
+                    img.style.minHeight = '60px';
+                    img.style.maxHeight = '180px';
+                    img.style.objectFit = 'contain';
+                    img.style.display = 'block';
+                    img.style.background = '#000';
+                    div.appendChild(img);
+
+                    const removeBtn = document.createElement('button');
+                    removeBtn.className = 'remove-btn';
+                    removeBtn.textContent = '×';
+                    removeBtn.onclick = (e) => { e.stopPropagation(); this.removeFrame(index); };
+                    div.appendChild(removeBtn);
+
+                    const info = document.createElement('div');
+                    info.className = 'frame-info';
+                    let infoText = `${this.formatTime(frame.time)}`;
+                    if (frame.score !== undefined) {
+                        infoText += ` | Score: ${(frame.score * 100).toFixed(0)}`;
+                    }
+                    if (frame.lutApplied) {
+                        infoText += ' 🎨';
+                    }
+                    info.textContent = infoText;
+                    div.appendChild(info);
+
+                    this.framesList.appendChild(div);
+                });
+            }
+
+            downloadCurrentFrame() {
+                const format = this.exportFormat.value;
+                const quality = this.qualitySlider.value / 100;
+                const mimeType = format === 'jpeg' ? 'image/jpeg' : format === 'webp' ? 'image/webp' : 'image/png';
+
+                // Create export canvas with optional LUT
+                const exportCanvas = document.createElement('canvas');
+                exportCanvas.width = this.video.videoWidth;
+                exportCanvas.height = this.video.videoHeight;
+                const exportCtx = exportCanvas.getContext('2d');
+                exportCtx.drawImage(this.video, 0, 0, exportCanvas.width, exportCanvas.height);
+
+                // Apply LUT if enabled
+                if (this.lutLoaded && this.applyLut) {
+                    const imageData = exportCtx.getImageData(0, 0, exportCanvas.width, exportCanvas.height);
+                    this.lutProcessor.applyToImageData(imageData);
+                    exportCtx.putImageData(imageData, 0, 0);
+                }
+
+                const dataUrl = exportCanvas.toDataURL(mimeType, quality);
+                const link = document.createElement('a');
+                link.download = `screenshot_${Math.floor(this.video.currentTime * 1000)}.${format}`;
+                link.href = dataUrl;
+                link.click();
+
+                const lutNote = (this.lutLoaded && this.applyLut) ? ' (mit LUT)' : '';
+                this.setStatus(`Screenshot gespeichert${lutNote}`);
+            }
+
+            exportAllFrames() {
+                if (this.frames.length === 0) return;
+
+                const format = this.exportFormat.value;
+                const quality = this.qualitySlider.value / 100;
+                const mimeType = format === 'jpeg' ? 'image/jpeg' : format === 'webp' ? 'image/webp' : 'image/png';
+
+                this.frames.forEach((frame, index) => {
+                    // Re-render at full quality
+                    const img = new Image();
+                    img.onload = () => {
+                        const exportCanvas = document.createElement('canvas');
+                        exportCanvas.width = this.canvas.width;
+                        exportCanvas.height = this.canvas.height;
+                        exportCanvas.getContext('2d').drawImage(img, 0, 0);
+
+                        const dataUrl = exportCanvas.toDataURL(mimeType, quality);
+                        const link = document.createElement('a');
+                        link.download = `frame_${String(index + 1).padStart(3, '0')}_${frame.frameNumber}.${format}`;
+                        link.href = dataUrl;
+                        link.click();
+                    };
+                    img.src = frame.dataUrl;
+                });
+
+                this.setStatus(`${this.frames.length} Screenshots exportiert`);
+            }
+
+            async analyzeVideo() {
+                if (this.isAnalyzing) return;
+
+                this.isAnalyzing = true;
+                this.analyzeBtn.disabled = true;
+                this.analysisProgress.classList.remove('hidden');
+
+                const maxFrames = parseInt(this.maxFramesSelect.value);
+                const duration = this.video.duration;
+
+                // Intelligentes Sampling: Je länger das Video, desto mehr Samples
+                // aber maximal alle 0.5 Sekunden
+                const minInterval = 0.5;
+                const maxSamples = Math.min(500, Math.ceil(duration / minInterval));
+                const interval = duration / maxSamples;
+
+                const candidates = [];
+
+                this.setStatus('Analysiere Video...');
+
+                for (let i = 0; i < maxSamples; i++) {
+                    const time = i * interval;
+
+                    // Progress Update
+                    const progress = ((i + 1) / maxSamples) * 100;
+                    this.analysisProgressFill.style.width = progress + '%';
+                    this.analysisStatus.textContent = `Analysiere: ${Math.round(progress)}% (${i + 1}/${maxSamples} Samples)`;
+
+                    // Zum Zeitpunkt springen und warten
+                    await this.seekToAsync(time);
+
+                    // Frame analysieren
+                    const score = this.frameAnalyzer.analyzeFrame(
+                        this.video,
+                        this.video.videoWidth,
+                        this.video.videoHeight
+                    );
+
+                    candidates.push({
+                        time,
+                        score: score.totalScore,
+                        sharpness: score.sharpness,
+                        faceScore: score.faceScore
+                    });
+
+                    // UI nicht blockieren
+                    if (i % 10 === 0) {
+                        await new Promise(r => setTimeout(r, 0));
+                    }
+                }
+
+                // Beste Frames auswählen mit Mindestabstand
+                const bestFrames = this.selectBestFrames(candidates, maxFrames, 2.0);
+
+                // Frames hinzufügen
+                this.analysisStatus.textContent = 'Füge beste Frames hinzu...';
+
+                for (const candidate of bestFrames) {
+                    await this.seekToAsync(candidate.time);
+                    // Warten bis Frame tatsächlich gerendert ist
+                    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+                    await new Promise(r => setTimeout(r, 100));
+
+                    // Direkt Frame hinzufügen (ohne Duplikat-Check, da neue Analyse)
+                    this.addFrameAtTime(candidate.time, candidate.score);
+                }
+
+                // Aufräumen
+                this.isAnalyzing = false;
+                this.analyzeBtn.disabled = false;
+                this.analysisProgress.classList.add('hidden');
+                this.analysisProgressFill.style.width = '0%';
+
+                // Zum ersten gefundenen Frame springen
+                if (bestFrames.length > 0) {
+                    await this.seekToAsync(bestFrames[0].time);
+                }
+
+                this.setStatus(`Analyse abgeschlossen: ${bestFrames.length} beste Frames gefunden`);
+            }
+
+            selectBestFrames(candidates, maxCount, minDistance) {
+                // Nach Score sortieren
+                const sorted = [...candidates].sort((a, b) => b.score - a.score);
+
+                const selected = [];
+
+                for (const candidate of sorted) {
+                    if (selected.length >= maxCount) break;
+
+                    // Mindestabstand prüfen
+                    const tooClose = selected.some(s => Math.abs(s.time - candidate.time) < minDistance);
+                    if (!tooClose) {
+                        selected.push(candidate);
+                    }
+                }
+
+                // Nach Zeit sortieren für chronologische Anzeige
+                return selected.sort((a, b) => a.time - b.time);
+            }
+
+            seekToAsync(time) {
+                return new Promise(resolve => {
+                    const onSeeked = () => {
+                        this.video.removeEventListener('seeked', onSeeked);
+                        resolve();
+                    };
+                    this.video.addEventListener('seeked', onSeeked);
+                    this.video.currentTime = time;
+                });
+            }
+
+            addFrameAtTime(time, score) {
+                // Prüfen ob Video bereit ist
+                if (this.video.readyState < 2) {
+                    console.warn('Video not ready for frame capture at', time);
+                    return;
+                }
+
+                const vw = this.video.videoWidth;
+                const vh = this.video.videoHeight;
+
+                if (vw === 0 || vh === 0) {
+                    console.warn('Video dimensions not available');
+                    return;
+                }
+
+                // Create full-res frame with optional LUT
+                const fullCanvas = document.createElement('canvas');
+                fullCanvas.width = vw;
+                fullCanvas.height = vh;
+                const fullCtx = fullCanvas.getContext('2d');
+                fullCtx.drawImage(this.video, 0, 0, vw, vh);
+
+                // Apply LUT if enabled
+                if (this.lutLoaded && this.applyLut) {
+                    const imageData = fullCtx.getImageData(0, 0, vw, vh);
+                    this.lutProcessor.applyToImageData(imageData);
+                    fullCtx.putImageData(imageData, 0, 0);
+                }
+
+                // Capture thumbnail (aspect ratio beibehalten)
+                const thumbWidth = 160;
+                const thumbHeight = Math.round(thumbWidth * (vh / vw));
+                const thumbCanvas = document.createElement('canvas');
+                thumbCanvas.width = thumbWidth;
+                thumbCanvas.height = thumbHeight;
+                const thumbCtx = thumbCanvas.getContext('2d');
+                thumbCtx.drawImage(fullCanvas, 0, 0, thumbWidth, thumbHeight);
+
+                const frame = {
+                    time: time,
+                    frameNumber: Math.floor(time * this.fps),
+                    dataUrl: fullCanvas.toDataURL('image/png'),
+                    thumbnailUrl: thumbCanvas.toDataURL('image/jpeg', 0.85),
+                    lutApplied: this.lutLoaded && this.applyLut,
+                    score: score,
+                    aspectRatio: vw / vh
+                };
+
+                this.frames.push(frame);
+                this.renderFramesList();
+                this.exportBtn.disabled = false;
+            }
+
+            formatTime(seconds) {
+                const mins = Math.floor(seconds / 60);
+                const secs = (seconds % 60).toFixed(2);
+                return `${String(mins).padStart(2, '0')}:${secs.padStart(5, '0')}`;
+            }
+
+            setStatus(text) {
+                this.statusText.textContent = text;
+            }
+        }
+
+        const app = new ScreenshotTool();
+    </script>
+</body>
+</html>
